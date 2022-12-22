@@ -13,6 +13,7 @@ from django.views.generic import DetailView, ListView, CreateView, UpdateView, D
 
 from django27 import settings
 from vacancies.models import Vacancy, Skill
+from vacancies.serializers import VacancyDetailSerializer, VacancyListSerializer, VacancyCreateSerializer
 
 
 def hello(request):
@@ -37,22 +38,23 @@ class VacancyListView(ListView):
         page_number = request.GET.get("page")
         page_obj = paginator.get_page(page_number)
 
-        vacancies = []
-        for vacancy in page_obj:
-            vacancies.append(
-                {
-                    "id": vacancy.id,
-                    "text": vacancy.text,
-                    "slug": vacancy.slug,
-                    "status": vacancy.status,
-                    "created": vacancy.created,
-                    "user": vacancy.user_id,
-                    "skills": list(map(str, vacancy.skills.all()))
-                }
-            )
+        # vacancies = []
+        # for vacancy in page_obj:
+        #     vacancies.append(
+        #         {
+        #             "id": vacancy.id,
+        #             "text": vacancy.text,
+        #             "slug": vacancy.slug,
+        #             "status": vacancy.status,
+        #             "created": vacancy.created,
+        #             "user": vacancy.user_id,
+        #             "skills": list(map(str, vacancy.skills.all()))
+        #         }
+        #     )
+        list(map(lambda x: setattr(x, "username", x.user.username if x.user else None), page_obj))
 
         response = {
-            "items": vacancies,
+            "items": VacancyListSerializer(page_obj, many=True).data,
             "num_pages": paginator.num_pages,
             "total": paginator.count
         }
@@ -66,15 +68,16 @@ class VacancyDetailView(DetailView):
     def get(self, request, *args, **kwargs):
         vacancy = self.get_object()
 
-        return JsonResponse({
-            "id": vacancy.id,
-            "text": vacancy.text,
-            "slug": vacancy.slug,
-            "status": vacancy.status,
-            "created": vacancy.created,
-            "user": vacancy.user_id,
-            "skills": list(map(str, vacancy.skills.all()))
-        })
+        # return JsonResponse({
+        #     "id": vacancy.id,
+        #     "text": vacancy.text,
+        #     "slug": vacancy.slug,
+        #     "status": vacancy.status,
+        #     "created": vacancy.created,
+        #     "user": vacancy.user_id,
+        #     "skills": list(map(str, vacancy.skills.all()))
+        # })
+        return JsonResponse(VacancyDetailSerializer(vacancy).data)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -83,37 +86,45 @@ class VacancyCreateView(CreateView):
     fields = ["user", "slug", "text", "status", "created", "skills"]
 
     def post(self, request, *args, **kwargs):
-        vacancy_data = json.loads(request.body)
+        vacancy_data = VacancyCreateSerializer(data=json.loads(request.body))
+        if vacancy_data.is_valid():
+            vacancy_data.save()
+        else:
+            return JsonResponse(vacancy_data.errors)
 
-        vacancy = Vacancy.objects.create(
-            slug=vacancy_data["slug"],
-            text=vacancy_data["text"],
-            status=vacancy_data["status"]
-        )
+        return JsonResponse(vacancy_data.data)
+
+        # vacancy_data = json.loads(request.body)
+        #
+        # vacancy = Vacancy.objects.create(
+        #     slug=vacancy_data["slug"],
+        #     text=vacancy_data["text"],
+        #     status=vacancy_data["status"]
+        # )
 
         # vacancy.user = User.objects.get(pk=vacancy_data["user_id"])
-        vacancy.user = get_object_or_404(User, pk=vacancy_data["user_id"])
+        # vacancy.user = get_object_or_404(User, pk=vacancy_data["user_id"])
+        #
+        # for skill in vacancy_data["skills"]:
+        #     skill_obj, created = Skill.objects.get_or_create(
+        #         name=skill,
+        #         defaults={
+        #             "is_active": True
+        #         }
+        #     )
+        #     vacancy.skills.add(skill_obj)
+        #
+        # vacancy.save()
 
-        for skill in vacancy_data["skills"]:
-            skill_obj, created = Skill.objects.get_or_create(
-                name=skill,
-                defaults={
-                    "is_active": True
-                }
-            )
-            vacancy.skills.add(skill_obj)
-
-        vacancy.save()
-
-        return JsonResponse({
-                    "id": vacancy.id,
-                    "text": vacancy.text,
-                    "slug": vacancy.slug,
-                    "status": vacancy.status,
-                    "created": vacancy.created,
-                    "user": vacancy.user_id,
-                    "skills": list(map(str, vacancy.skills.all()))
-                })
+        # return JsonResponse({
+        #             "id": vacancy.id,
+        #             "text": vacancy.text,
+        #             "slug": vacancy.slug,
+        #             "status": vacancy.status,
+        #             "created": vacancy.created,
+        #             "user": vacancy.user_id,
+        #             "skills": list(map(str, vacancy.skills.all()))
+        #         })
 
 
 @method_decorator(csrf_exempt, name="dispatch")
