@@ -31,6 +31,11 @@ class Vacancy(models.Model):
     class Meta:
         verbose_name = "Вакансия"
         verbose_name_plural = "Вакансии"
+        # ordering = ["text"]
 
     def __str__(self):
         return self.slug
+
+    @property
+    def username(self):
+        return self.user.username if self.user else None
