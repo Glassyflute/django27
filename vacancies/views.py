@@ -1,6 +1,6 @@
-import json
 
-from django.contrib.auth.models import User
+
+
 from django.core.paginator import Paginator
 from django.db.models import Count, Avg
 from django.http import HttpResponse, JsonResponse
@@ -10,16 +10,27 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import ModelViewSet
 
+from authentication.models import User
 from django27 import settings
 from vacancies.models import Vacancy, Skill
+from vacancies.permissions import VacancyCreatePermission
 from vacancies.serializers import VacancyDetailSerializer, VacancyListSerializer, VacancyCreateSerializer, \
-    VacancyUpdateSerializer, VacancyDestroySerializer
+    VacancyUpdateSerializer, VacancyDestroySerializer, SkillSerializer
 
 
 def hello(request):
     return HttpResponse("Hello world")
+
+
+class SkillsViewSet(ModelViewSet):
+    queryset = Skill.objects.all()
+    serializer_class = SkillSerializer
+
 
 
 # @csrf_exempt for functions before without CBV
@@ -76,6 +87,7 @@ class VacancyListView(ListAPIView):
 class VacancyDetailView(RetrieveAPIView):
     queryset = Vacancy.objects.all()
     serializer_class = VacancyDetailSerializer
+    permission_classes = [IsAuthenticated]
 
     ####### Generic Views Django, with serializers. Before Generic Views DRF
     # model = Vacancy
@@ -101,6 +113,7 @@ class VacancyDetailView(RetrieveAPIView):
 class VacancyCreateView(CreateAPIView):
     queryset = Vacancy.objects.all()
     serializer_class = VacancyCreateSerializer
+    permission_classes = [IsAuthenticated, VacancyCreatePermission]
 
     ####### Generic Views Django, with serializers. Before Generic Views DRF
     # model = Vacancy
@@ -202,30 +215,59 @@ class VacancyDeleteView(DestroyAPIView):
     #     return JsonResponse({"status": "ok"}, status=200)
 
 
-class UserVacancyDetailView(View):
-    def get(self, request):
-        user_qs = User.objects.annotate(vacancies=Count('vacancy'))
+# class UserVacancyDetailView(View):
+#     def get(self, request):
+#         user_qs = User.objects.annotate(vacancies=Count('vacancy'))
+#
+#         paginator = Paginator(user_qs, settings.TOTAL_ON_PAGE)
+#         page_number = request.GET.get("page")
+#         page_obj = paginator.get_page(page_number)
+#
+#         users = []
+#         for user in page_obj:
+#             users.append(
+#                 {
+#                     "id": user.id,
+#                     "name": user.username,
+#                     "vacancies": user.vacancies
+#                 }
+#             )
+#
+#         response = {
+#             "items": users,
+#             "num_pages": paginator.num_pages,
+#             "total": paginator.count,
+#             "average_num_vacancies": user_qs.aggregate(avg=Avg('vacancies'))["avg"]
+#         }
+#
+#         return JsonResponse(response)
+TOTAL_ON_PAGE = 5
 
-        paginator = Paginator(user_qs, settings.TOTAL_ON_PAGE)
-        page_number = request.GET.get("page")
-        page_obj = paginator.get_page(page_number)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_vacancies(request):
+    user_qs = User.objects.annotate(vacancies=Count('vacancy'))
 
-        users = []
-        for user in page_obj:
-            users.append(
-                {
-                    "id": user.id,
-                    "name": user.username,
-                    "vacancies": user.vacancies
-                }
-            )
+    paginator = Paginator(user_qs, settings.TOTAL_ON_PAGE)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
 
-        response = {
-            "items": users,
-            "num_pages": paginator.num_pages,
-            "total": paginator.count,
-            "average_num_vacancies": user_qs.aggregate(avg=Avg('vacancies'))["avg"]
-        }
+    users = []
+    for user in page_obj:
+        users.append(
+            {
+                "id": user.id,
+                "name": user.username,
+                "vacancies": user.vacancies
+            }
+        )
 
-        return JsonResponse(response)
+    response = {
+        "items": users,
+        "num_pages": paginator.num_pages,
+        "total": paginator.count,
+        "average_num_vacancies": user_qs.aggregate(avg=Avg('vacancies'))["avg"]
+    }
+
+    return JsonResponse(response)
 

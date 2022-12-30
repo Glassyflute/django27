@@ -3,6 +3,12 @@ from rest_framework import serializers
 from vacancies.models import Vacancy, Skill
 
 
+class SkillSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Skill
+        fields = '__all__'
+
+
 class VacancyListSerializer(serializers.ModelSerializer):
     username = serializers.CharField()
     skills = serializers.SlugRelatedField(
@@ -50,7 +56,7 @@ class VacancyCreateSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def is_valid(self, raise_exception=False):
-        self._skills = self.initial_data.pop("skills")
+        self._skills = self.initial_data.pop("skills", [])
         return super().is_valid(raise_exception=raise_exception)
 
     def create(self, validated_data):
@@ -79,7 +85,7 @@ class VacancyUpdateSerializer(serializers.ModelSerializer):
         fields = ["id", "text", "slug", "status", "created", "skills", "user"]
 
     def is_valid(self, raise_exception=False):
-        self._skills = self.initial_data.pop("skills")
+        self._skills = self.initial_data.pop("skills", [])
         return super().is_valid(raise_exception=raise_exception)
 
     def save(self):
