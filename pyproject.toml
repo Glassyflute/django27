@@ -12,6 +12,7 @@ psycopg2 = "^2.9.5"
 Pillow = "^9.3.0"
 djangorestframework = "^3.14.0"
 djangorestframework-simplejwt = "^5.2.2"
+pytest-django = "^4.5.2"
 
 
 [build-system]
